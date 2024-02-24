@@ -9,6 +9,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Portal.h"
+#include "PortalWall.h"
 
 // Sets default values for this component's properties
 UTP_WeaponComponent::UTP_WeaponComponent()
@@ -86,15 +88,27 @@ void UTP_WeaponComponent::AttachWeapon(APortalCharacter* TargetCharacter)
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
 			// Set the priority of the mapping to 1, so that it overrides the Jump action with the Fire action when using touch input
-			Subsystem->AddMappingContext(FireMappingContext, 1);
+			//Subsystem->AddMappingContext(FireMappingContext, 1);
+
+			Subsystem->AddMappingContext(PortalMappingContext, 1);
 		}
 
 		if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
 		{
 			// Fire
 			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::Fire);
+
+			EnhancedInputComponent->BindAction(FireBluePortalAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::FirePortal, EPortalColor::Blue);
+
+			EnhancedInputComponent->BindAction(FireOrangePortalAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::FirePortal, EPortalColor::Orange);
 		}
 	}
+
+	// Create portals
+	BluePortal = GetWorld()->SpawnActor<APortal>(BluePortalClass, FVector::ZeroVector, FRotator::ZeroRotator);
+	OrangePortal = GetWorld()->SpawnActor<APortal>(OrangePortalClass, FVector::ZeroVector, FRotator::ZeroRotator);
+	BluePortal->Initialize(OrangePortal, Character);
+	OrangePortal->Initialize(BluePortal, Character);
 }
 
 void UTP_WeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -109,6 +123,34 @@ void UTP_WeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
 			Subsystem->RemoveMappingContext(FireMappingContext);
+		}
+	}
+}
+
+void UTP_WeaponComponent::FirePortal(EPortalColor Color)
+{
+	FHitResult HitResult;
+	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	const FRotator CameraRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
+	FVector Start = GetOwner()->GetActorLocation();
+	FVector End = Start + CameraRotation.Vector() * PortalRange;
+
+	GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, PortalTraceChannel);
+
+	if (HitResult.bBlockingHit)
+	{
+		switch (Color)
+		{
+			case EPortalColor::Blue:
+				BluePortal->Move(HitResult.ImpactPoint, HitResult.ImpactNormal.Rotation(), Cast<APortalWall>(HitResult.GetActor()));
+				break;
+
+			case EPortalColor::Orange:
+				OrangePortal->Move(HitResult.ImpactPoint, HitResult.ImpactNormal.Rotation(), Cast<APortalWall>(HitResult.GetActor()));
+				break;
+
+			default:
+				break;
 		}
 	}
 }

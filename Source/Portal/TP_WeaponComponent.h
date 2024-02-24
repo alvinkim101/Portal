@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "PortalMisc.h"
 #include "TP_WeaponComponent.generated.h"
 
 class APortalCharacter;
@@ -54,7 +55,31 @@ protected:
 	UFUNCTION()
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+public:
+	UPROPERTY(EditDefaultsOnly, Category = Portal)
+	TSubclassOf<class APortal> BluePortalClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = Portal)
+	TSubclassOf<class APortal> OrangePortalClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = Portal)
+	double PortalRange = 5000.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputMappingContext* PortalMappingContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* FireBluePortalAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* FireOrangePortalAction;
+
+	void FirePortal(EPortalColor Color);
+
 private:
 	/** The Character holding this weapon*/
 	APortalCharacter* Character;
+
+	class APortal* BluePortal;
+	class APortal* OrangePortal;
 };
