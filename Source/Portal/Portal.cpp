@@ -5,6 +5,7 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include "PortalCharacter.h"
 #include "PortalWall.h"
+#include "Kismet/KismetMathLibrary.h"
 
 IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, Portal, "Portal" );
 
@@ -20,7 +21,9 @@ APortal::APortal()
 
 	SetRootComponent(Frame);
 	Surface->SetupAttachment(Frame);
-	Camera->SetupAttachment(Surface);
+	Camera->SetupAttachment(Frame);
+
+	Camera->bEnableClipPlane = true;
 }
 
 // Called when the game starts or when spawned
@@ -35,7 +38,17 @@ void APortal::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (!Character)
+	{
+		return;
+	}
 
+	FTransform PlayerTransform = Cast<APlayerController>(Character->GetController())->PlayerCameraManager->GetTransform();
+	FRotator RelativeInversePortalRotation = (GetActorForwardVector() * -1.0).Rotation();
+	FTransform PortalTransform(RelativeInversePortalRotation, GetActorLocation(), GetActorScale());
+	
+	FTransform RelativeTransform = UKismetMathLibrary::MakeRelativeTransform(PlayerTransform, PortalTransform);
+	Pair->Camera->SetRelativeTransform(RelativeTransform);
 }
 
 void APortal::Initialize(APortal* InPair, APortalCharacter* InCharacter)
@@ -49,4 +62,7 @@ void APortal::Move(FVector InLocation, FRotator InRotation, class APortalWall* I
 	SetActorLocation(InLocation);
 	SetActorRotation(InRotation);
 	Wall = InWall;
+
+	Camera->ClipPlaneBase = InLocation;
+	Camera->ClipPlaneNormal = InRotation.Vector();
 }
