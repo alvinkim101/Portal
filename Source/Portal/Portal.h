@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Containers/Set.h"
 #include "Portal.generated.h"
 
 UCLASS()
@@ -28,6 +29,14 @@ public:
 
 	void Move(FVector Location, FRotator Rotation, class APortalWall* Wall);
 
+	void Teleport(AActor* Actor, FTransform RelativeActorTransform);
+
+	UFUNCTION()
+	void BeginActorOverlap(AActor* OverlappedActor, AActor* OtherActor);
+
+	UFUNCTION()
+	void EndActorOverlap(AActor* OverlappedActor, AActor* OtherActor);
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	class UStaticMeshComponent* Frame;
@@ -41,4 +50,6 @@ protected:
 	class APortalWall* Wall;
 	class APortal* Pair;
 	class APortalCharacter* Character;
+
+	TSet<AActor*> TeleportableSet; // Actors to check whether or not to teleport
 };

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 
 #define PortalTraceChannel ECollisionChannel::ECC_GameTraceChannel2
+#define PortalObjectChannel ECollisionChannel::ECC_GameTraceChannel3
 
 UENUM()
 enum class EPortalColor : uint8

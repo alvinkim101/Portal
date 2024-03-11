@@ -24,6 +24,11 @@ APortal::APortal()
 	Camera->SetupAttachment(Frame);
 
 	Camera->bEnableClipPlane = true;
+
+	Surface->SetCollisionResponseToChannel(ECC_Pawn, ECollisionResponse::ECR_Overlap);
+
+	OnActorBeginOverlap.AddUniqueDynamic(this, &APortal::BeginActorOverlap);
+	OnActorEndOverlap.AddUniqueDynamic(this, &APortal::EndActorOverlap);
 }
 
 // Called when the game starts or when spawned
@@ -49,6 +54,20 @@ void APortal::Tick(float DeltaTime)
 	
 	FTransform RelativeTransform = UKismetMathLibrary::MakeRelativeTransform(PlayerTransform, PortalTransform);
 	Pair->Camera->SetRelativeTransform(RelativeTransform);
+
+	TSet<AActor*> LocalTeleportableSet = TeleportableSet;
+	for (const auto& Actor : LocalTeleportableSet)
+	{
+		FTransform ActorTransform = Actor->GetTransform();
+		FTransform FutureActorTransform(Actor->GetActorRotation(), Actor->GetActorLocation() + Actor->GetVelocity() * DeltaTime, Actor->GetActorScale());
+		FTransform RelativeActorTransform = UKismetMathLibrary::MakeRelativeTransform(ActorTransform, PortalTransform);
+		FTransform RelativeFutureActorTransform = UKismetMathLibrary::MakeRelativeTransform(FutureActorTransform, PortalTransform);
+
+		if (RelativeActorTransform.GetLocation().X < 0 && RelativeFutureActorTransform.GetLocation().X > 0)
+		{
+			Teleport(Actor, RelativeActorTransform);
+		}
+	}
 }
 
 void APortal::Initialize(APortal* InPair, APortalCharacter* InCharacter)
@@ -65,4 +84,37 @@ void APortal::Move(FVector InLocation, FRotator InRotation, class APortalWall* I
 
 	Camera->ClipPlaneBase = InLocation;
 	Camera->ClipPlaneNormal = InRotation.Vector();
+}
+
+void APortal::Teleport(AActor* Actor, FTransform RelativeActorTransform)
+{
+	FVector Velocity = Actor->GetVelocity() * GetWorld()->DeltaTimeSeconds;
+	Actor->SetActorLocation(Pair->GetActorLocation() + RelativeActorTransform.Rotator().Vector() * Velocity.Length());
+	Actor->SetActorRotation(Pair->GetActorRotation() + RelativeActorTransform.Rotator());
+	Actor->GetRootComponent()->ComponentVelocity = RelativeActorTransform.Rotator().Vector() * Velocity.Length();
+
+	if (Actor == Character)
+	{
+		Character->GetController()->SetControlRotation(Pair->GetActorRotation() + RelativeActorTransform.Rotator());
+	}
+}
+
+void APortal::BeginActorOverlap(AActor* OverlappedActor, AActor* OtherActor)
+{
+	if (Wall)
+	{
+		Cast<UPrimitiveComponent>(OtherActor->GetRootComponent())->IgnoreActorWhenMoving(Wall, true);
+	}
+
+	TeleportableSet.Add(OtherActor);
+}
+
+void APortal::EndActorOverlap(AActor* OverlappedActor, AActor* OtherActor)
+{
+	if (Wall)
+	{
+		Cast<UPrimitiveComponent>(OtherActor->GetRootComponent())->IgnoreActorWhenMoving(Wall, false);
+	}
+
+	TeleportableSet.Remove(OtherActor);
 }
